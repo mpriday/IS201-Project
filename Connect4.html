@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Connect 4 - AI</title>
+<style>
+  body { font-family: Arial, sans-serif; display:flex; flex-direction:column; align-items:center; background:#0b132b; color:#fff; }
+  h1 { margin: 16px 0; }
+  #board { display:grid; grid-template-columns: repeat(7, 70px); gap:8px; background:#1c2541; padding:10px; border-radius:12px; }
+  .cell { width:70px; height:70px; border-radius:50%; background:#3a506b; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+  .cell:hover { outline: 2px solid #5bc0be; }
+  .disc { width:58px; height:58px; border-radius:50%; }
+  .p1 { background:#ffd166; }
+  .ai { background:#ef476f; }
+  #status { margin: 12px; }
+  button { padding:8px 12px; border-radius:8px; border:none; cursor:pointer; }
+</style>
+</head>
+<body>
+<h1>Connect 4</h1>
+<div id="board"></div>
+<div id="status"></div>
+<button onclick="resetGame()">Restart</button>
+
+<script>
+const ROWS = 6, COLS = 7;
+let board = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+let gameOver = false;
+const boardEl = document.getElementById('board');
+const statusEl = document.getElementById('status');
+
+function drawBoard() {
+  boardEl.innerHTML = '';
+  for (let r=0;r<ROWS;r++){
+    for (let c=0;c<COLS;c++){
+      const cell = document.createElement('div');
+      cell.className='cell';
+      cell.onclick = () => playerMove(c);
+      if (board[r][c]!==0){
+        const d=document.createElement('div');
+        d.className='disc '+(board[r][c]===1?'p1':'ai');
+        cell.appendChild(d);
+      }
+      boardEl.appendChild(cell);
+    }
+  }
+}
+
+function playerMove(col){
+  if (gameOver) return;
+  const row = drop(col,1);
+  if (row===-1) return;
+  if (checkWin(board,1)){ end('You win! (rare)'); return; }
+  if (isFull()){ end('Draw'); return; }
+  aiMove();
+}
+
+function aiMove(){
+  const col = bestMove(board,5);
+  drop(col,2);
+  drawBoard();
+  if (checkWin(board,2)){ end('Computer wins'); return; }
+  if (isFull()){ end('Draw'); }
+}
+
+function drop(col,player){
+  for (let r=ROWS-1;r>=0;r--){
+    if (board[r][col]===0){ board[r][col]=player; drawBoard(); return r; }
+  }
+  return -1;
+}
+
+function isFull(){ return board[0].every(c=>c!==0); }
+
+function end(msg){ gameOver=true; statusEl.textContent=msg; }
+
+function checkWin(b,p){
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    if (c+3<COLS && b[r][c]===p && b[r][c+1]===p && b[r][c+2]===p && b[r][c+3]===p) return true;
+    if (r+3<ROWS && b[r][c]===p && b[r+1][c]===p && b[r+2][c]===p && b[r+3][c]===p) return true;
+    if (r+3<ROWS && c+3<COLS && b[r][c]===p && b[r+1][c+1]===p && b[r+2][c+2]===p && b[r+3][c+3]===p) return true;
+    if (r-3>=0 && c+3<COLS && b[r][c]===p && b[r-1][c+1]===p && b[r-2][c+2]===p && b[r-3][c+3]===p) return true;
+  }
+  return false;
+}
+
+function scorePosition(b){
+  let score=0;
+  const center = b.map(r=>r[3]);
+  score += center.filter(x=>x===2).length*6;
+  return score;
+}
+
+function getValidCols(b){ return [...Array(COLS).keys()].filter(c=>b[0][c]===0); }
+
+function clone(b){ return b.map(r=>r.slice()); }
+
+function minimax(b, depth, alpha, beta, maximizing){
+  const valid = getValidCols(b);
+  if (depth===0 || checkWin(b,1) || checkWin(b,2) || valid.length===0){
+    if (checkWin(b,2)) return {score:1000};
+    if (checkWin(b,1)) return {score:-1000};
+    return {score:scorePosition(b)};
+  }
+
+  if (maximizing){
+    let value=-Infinity, best=valid[0];
+    for (let col of valid){
+      let temp=clone(b);
+      for(let r=ROWS-1;r>=0;r--) if(temp[r][col]===0){ temp[r][col]=2; break; }
+      let newScore = minimax(temp, depth-1, alpha, beta, false).score;
+      if (newScore>value){ value=newScore; best=col; }
+      alpha = Math.max(alpha,value);
+      if (alpha>=beta) break;
+    }
+    return {col:best, score:value};
+  } else {
+    let value=Infinity, best=valid[0];
+    for (let col of valid){
+      let temp=clone(b);
+      for(let r=ROWS-1;r>=0;r--) if(temp[r][col]===0){ temp[r][col]=1; break; }
+      let newScore = minimax(temp, depth-1, alpha, beta, true).score;
+      if (newScore<value){ value=newScore; best=col; }
+      beta = Math.min(beta,value);
+      if (alpha>=beta) break;
+    }
+    return {col:best, score:value};
+  }
+}
+
+function bestMove(b, depth){
+  return minimax(b, depth, -Infinity, Infinity, true).col;
+}
+
+function resetGame(){
+  board = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+  gameOver=false; statusEl.textContent=''; drawBoard();
+}
+
+drawBoard();
+</script>
+</body>
+</html>
